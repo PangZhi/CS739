@@ -11,8 +11,9 @@
 #include <unistd.h>
 
 #include "Constant.h"
+#include "Message.h"
 #include "string_util.h"
- // #include "msg.pb.h"
+
 
 using namespace kvstore;
 
@@ -47,104 +48,79 @@ int kv739_init(char *server_str) {
   
 }
 
-// 4 bytes int for the kind of operation | 4 bytes int for the length of
+// Send Message: 4 bytes int for the kind of operation | 4 bytes int for the length of
 // key | key | 4 bytes int for the length of value (if any) | value 
 // operation type: get->0, put->1
+// Receive Message: 4 bytes int for return value | 4 bytes int for the length
+// of old_value (if any) | old_value
 int kv739_get(char* key, char* value) {
-  std::cout << "Get message.\n"; 
   // Generate message.
-  char msg[kMsgMaxLen];
   int pos = 0;
   int flag = 0;
-  memcpy(msg, &flag, sizeof(flag));
-  pos += sizeof(flag);
-  int len = strlen(key);
-  memcpy(msg + pos, &len, sizeof(len));
-  pos += sizeof(len);
-  memcpy(msg + pos, key, len);
-  pos += len;
-  msg[pos] = '\0'; 
+ 
+  Message msg;
+  msg.Append(&flag, sizeof(flag));
+  msg.Append(key);
 
-  if (send(sock , msg, pos , 0) < 0) {
+  if (send(sock , msg.data(), msg.length() , 0) < 0) {
     puts("Send failed");
     return -1;
   }
 
-  // memset(msg, 0, kMsgMaxLen);
   //Receive a reply from the server
-  if (recv(sock , msg, kMsgMaxLen, 0) < 0) {
+  char buf[kMsgMaxLen];
+  int size = -1;
+  if ((size = recv(sock , buf, kMsgMaxLen, 0)) < 0) {
     puts("recv failed");
     return -1;
   }
- 
+
   puts("recv success");
+  std::cout << "read size is: " << size << std::endl;
+  
   int ret = 0;
-  pos = 0;
-  memcpy(&ret, msg, sizeof(ret));
-  pos += sizeof(ret);
- 
-  puts("recv success");
+  msg.Reset(buf, size);
+  msg.Get(sizeof(ret), &ret);
+
   if (0 == ret) {
-    memcpy(&len, msg + pos, sizeof(len));
-    std::cout << len;
-  puts("recv success");
-    pos += sizeof(len);
-    memcpy(value, msg + pos, len);
-  puts("recv success");
-    pos += len;
-    std::cout << "ret :" << ret << "len :" << len << "\n";
-    value[pos] = '\0';
+    int len = -1;
+    msg.GetStr(value, &len);
+    std::cout << "ret :" << ret << " len :" << len << " value :" << value <<"\n";
   }
   return ret;
 }
 
 int kv739_put(char* key, char* value, char* old_value) {
   // Generate message.
-  std::cout << "Put Message.\n";
-  char msg[kMsgMaxLen];
-  int pos = 0;
+  Message msg;
   int flag = 1;
-  memcpy(msg, &flag, sizeof(flag));
-  pos += sizeof(flag);
-  int len = strlen(key);
-  memcpy(msg + pos, &len, sizeof(len));
-  pos += sizeof(len);
-  memcpy(msg + pos, key, len);
-  pos += len;
-  len = strlen(value);
-  memcpy(msg + pos, &len, sizeof(len));
-  pos += sizeof(len);
-  memcpy(msg + pos, value, len);
-  pos += len;
-  msg[pos] = '\0'; 
+  msg.Append(&flag, sizeof(flag));
+  msg.Append(key);
+  msg.Append(value);
 
-  std::cout << "Send Message: " << &msg[8] << " Pos: " << pos << std::endl;
-  std::cout << strlen(msg) << std::endl;
-  if (send(sock , msg, pos , 0) < 0) {
-    
-    std::cout << "send hah" << std::endl;
+  if (send(sock , msg.data(), msg.length(), 0) < 0) {
     puts("Send failed");
     return -1;
   }
-    std::cout << "send hah" << std::endl;
   puts("Send succeed");
+  
+  char buf[kMsgMaxLen];
+  int size = -1;
   //Receive a reply from the server
-  if (recv(sock , msg, kMsgMaxLen, 0) < 0) {
+  if ((size = recv(sock , buf, kMsgMaxLen, 0) < 0)) {
     puts("recv failed");
     return -1;
   }
   
   int ret = 0;
-  pos = 0;
-  memcpy(&ret, msg, sizeof(ret));
-  pos += sizeof(ret);
- 
+  std::cout << "Read size is: " << size << std::endl;
+  msg.Reset(buf, size);
+  msg.Get(sizeof(ret), &ret);
+
   if (0 == ret) {
-    memcpy(&len, msg + pos, sizeof(len));
-    pos += sizeof(len);
-    memcpy(old_value, msg + pos, len);
-    pos += len;
-    old_value[pos] = '\0';
+    int len = -1;
+    msg.GetStr(old_value, &len);
   }
+  std::cout << "Client receive ret: " << ret << " value: " << value << std::endl;
   return ret;
 }

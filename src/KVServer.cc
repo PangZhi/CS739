@@ -13,10 +13,11 @@
 #include <string>
 
 #include "Constant.h"
-// #include "msg.pb.h"
+#include "Message.h"
 
 namespace kvstore {
  /**
+  * Another way of call sqlite.
   static int sqliteCallback(void *notUsed, int argc, char** argv, char **colNames) {
     int i = 0;
     for (i = 0; i < argc; ++i) {
@@ -93,7 +94,6 @@ namespace kvstore {
     s = sqlite3_step(stmt);
     if (s == SQLITE_ROW) {
       text = (char *)sqlite3_column_text(stmt, 0);
-      // std::cout << text << "\n";
       if (atoi(text) == 0) {
         sql = "CREATE TABLE kvstore ("\
               "key char(129),"\
@@ -123,9 +123,14 @@ namespace kvstore {
   void KVServer::Run() {
     struct sockaddr client;
     int c, read_size, client_sock;
-    char msg[kMsgMaxLen];
     c = sizeof(struct sockaddr_in);
-  
+ 
+    Message msg;
+    char buf[kMsgMaxLen];
+    char key[kKeyMaxLen + 1];
+    char value[kValueMaxLen + 1];
+    char old_value[kValueMaxLen + 1];
+
     while (1) {
       //accept connection from an incoming client
       client_sock = accept(socket_desc_, (struct sockaddr *)&client, (socklen_t*)&c);
@@ -133,92 +138,51 @@ namespace kvstore {
         perror("accept failed");
       }
       puts("Connection accepted");
-       
+      
       //Receive a message from client
-      while( (read_size = recv(client_sock , msg, kMsgMaxLen, 0)) > 0 ) {
-        int flag;
-        char* cur = msg;
-        memcpy(&flag, cur, sizeof(flag));
-        cur += sizeof(flag);
+      while( (read_size = recv(client_sock , buf, kMsgMaxLen, 0)) > 0 ) {
+        int flag = -1;
+        msg.Reset(buf, read_size);
+        msg.Get(sizeof(flag), &flag);
         switch (flag) {
           case 0: {
-            int len;
-            memcpy(&len, cur, sizeof(len));
-            cur += sizeof(len);
-            char key[len + 1];
-            memcpy(key, cur, len);
-            key[len] = '\0';
-            char old_value[kValueMaxLen + 1];
+            int len = -1;
+            msg.GetStr(key, &len);
             // Query the db.
             int ret = GetFromDB(key, old_value);
-            std::cout << old_value << std::endl;
-            // std::cout << "Get Value: ret # " << ret << " key # " << key << " value # " << old_value << std::endl; 
-            cur = msg;
-            memcpy(cur, &ret, sizeof(ret));
-            cur += sizeof(ret);
+            msg.Reset(&ret, sizeof(ret));
             if (0 == ret) {
               std::cout << "Get: ret # " << ret << " key # " << key << " value # " << old_value << std::endl; 
-              len = strlen(old_value);
-              memcpy(cur, &len, sizeof(len));
-              cur += sizeof(len);
-              memcpy(cur, old_value, len);
-              cur += len;
-              *cur = '\0';
-              // write(client_sock , client_message , strlen(msg));
-            } else {
-              *cur = '\0';
-            }
-            std::cout << "send msg" << std::endl;
-            write(client_sock, msg, len + 8 );
-            std::cout << "send msg" << std::endl;
+              msg.Append(old_value);
+            } 
             break;
           }
           case 1: {
-            int len;
-            memcpy(&len, cur, sizeof(len));
-            cur += sizeof(len);
-            char key[len + 1];
-            memcpy(key, cur, len);
-            key[len] = '\0';
-            cur += len;
-            memcpy(&len, cur, sizeof(len));
-            cur += sizeof(len);
-            char value[len + 1];
-            memcpy(value, cur, len);
-            value[len] = '\0';
-            char old_value[kValueMaxLen + 1];
+            int len = -1;
+            msg.GetStr(key, &len);
+            msg.GetStr(value, &len);
             // Query the db.
             int ret = GetFromDB(key, old_value);
             // TODO:-1 == ret, add atomic operation here to not split the get
             // and put?
             int prev_ret = ret;
             ret = PutIntoDB(key, value);
+            std::cout << "prev_ret: " << prev_ret << " ret: " << ret << std::endl;
             if (-1 == prev_ret || -1 == ret) {
-              cur = msg;
               int tmp = -1;
-              memcpy(msg, &tmp , sizeof(tmp));
-              cur += sizeof(tmp);
-              *cur = '\0';
+              msg.Reset(&tmp, sizeof(tmp));
             } else {
-              cur = msg;
-              memcpy(msg, &prev_ret, sizeof(prev_ret));
-              cur += sizeof(prev_ret);
+              msg.Reset(&prev_ret, sizeof(prev_ret));
               if (0 == prev_ret) {
-                len = strlen(old_value);
-                memcpy(cur, &len, sizeof(len));
-                cur += sizeof(len);
-                memcpy(cur, old_value, len);
-                cur += len;
-                // write(client_sock , client_message , strlen(msg));
+                std::cout << "old value: " << old_value << std::endl;
+                msg.Append(old_value);
               }
-              *cur = '\0';
             }
-            write(client_sock, msg, strlen(msg));
             break;
           }
         }
-        //Send the message back to client
-        // write(client_sock , client_message , strlen(msg));
+        int size = write(client_sock, msg.data(), msg.length());
+        std::cout << "write size is: " << size <<" send msg size:" << msg.length() << "\n";
       }
      
       if(read_size == 0) {
@@ -249,14 +213,16 @@ int KVServer::GetFromDB(const char* key, char* value) {
 
 int KVServer::PutIntoDB(const char* key,const char* value) {
   int ret = -1;
-  CALL_SQLITE(bind_text(put_stmt_, 1, key, strlen(key), nullptr)); 
-  CALL_SQLITE(bind_text(put_stmt_, 2, value, strlen(value), nullptr));
+  CALL_SQLITE(bind_text(put_stmt_, 2, key, strlen(key), nullptr)); 
+  CALL_SQLITE(bind_text(put_stmt_, 1, value, strlen(value), nullptr));
+  sqlite3_exec(db_, "BEGIN TRANSACTION;", 0, 0, 0);
   int s = sqlite3_step(put_stmt_);
   if (s == SQLITE_DONE) {
     ret = 1;
   } else {
     ret = -1;
   }
+  sqlite3_exec(db_, "COMMIT TRANSACTION;", 0, 0, 0);
   CALL_SQLITE(reset(put_stmt_));
   CALL_SQLITE(clear_bindings(put_stmt_));
   return ret;

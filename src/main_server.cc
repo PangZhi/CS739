@@ -4,6 +4,6 @@
 
 int main() {
   kvstore::KVServer* server = new kvstore::KVServer();
-  server->Init(8888);
+  server->Init(8889);
   server->Run();
 }
