@@ -6,7 +6,7 @@
 namespace kvstore {
   const int kKeyMaxLen = 128;
   const int kValueMaxLen = 2048;
-  const int kMsgMaxLen = kKeyMaxLen + kValueMaxLen + sizeof(int) * 3 + 1;
+  const int kMsgMaxLen = kKeyMaxLen + kValueMaxLen + sizeof(int) * 3;
 } // namespace kvstore
 
 #endif // CS739_CONSTANT_H_
