@@ -17,7 +17,7 @@ class Message {
 
   /**
    * @brief Constructor.
-   * @param src Source buffer.
+   * @param src Source buffer to copy.
    * @param len Length of the buffer.
    */
   Message(const char* src, const int len);
@@ -44,7 +44,7 @@ class Message {
 
   /**
    * @brief Reset to a new buffer.
-   * @param src Source buffer.
+   * @param src Source buffer to copy.
    * @param len Length of content.
    */
   void Reset(const void* src, const int len);
@@ -57,7 +57,8 @@ class Message {
   void Append(const void* buf, const int len);
 
   /**
-   * @brief Append str to the end of this message.
+   * @brief Append str to the end of this message, should first append the
+   * length of buffer, then the buffer.
    * @param buf str.
    */
   void Append(const void* buf);

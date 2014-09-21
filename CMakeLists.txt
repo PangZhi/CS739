@@ -30,16 +30,17 @@ add_executable(
   client  
   src/main_client.cc
   src/Client.cc
-  #src/msg.pb.cc  
+  src/Message.cc
   )
-  add_executable(
-    server
-    src/main_server.cc
-    src/KVServer.cc
-    #src/msg.pb.cc
-    )
 
-  target_link_libraries(
-    server
-    sqlite3
-    )
+add_executable(
+  server
+  src/main_server.cc
+  src/KVServer.cc
+  src/Message.cc
+  )
+
+target_link_libraries(
+  server
+  sqlite3
+  )

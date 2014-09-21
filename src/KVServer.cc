@@ -43,7 +43,7 @@ namespace kvstore {
     this->port_ = port;
     struct sockaddr_in server;
      
-    //Create socket
+    // Create socket.
     socket_desc_ = socket(AF_INET , SOCK_STREAM , 0);
     if (socket_desc_ == -1)
     {
@@ -51,25 +51,23 @@ namespace kvstore {
     }
     puts("Socket created");
      
-    //Prepare the sockaddr_in structure
+    // Prepare the sockaddr_in structure.
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
     server.sin_port = htons(port);
      
-    //Bind
+    // Bind.
     if( bind(socket_desc_,(struct sockaddr *)&server , sizeof(server)) < 0)
     {
-        //print the error message
         perror("bind failed. Error");
     }
     puts("bind done");
      
-    //Listen
     listen(socket_desc_ , 3);
-     
     //Accept and incoming connection
     puts("Waiting for incoming connections...");
- 
+
+    // Init connection to database.
     InitDB();
   }
 
@@ -81,7 +79,7 @@ namespace kvstore {
     char *sql = nullptr, *errMsg = nullptr;
     sqlite3_stmt *stmt = nullptr;
     
-    // Create table.
+    // We store the key-value pairs in table kvstore. If not exist, create table.
     sql = "SELECT COUNT(*) "\
           "FROM sqlite_master "\
           "WHERE tbl_name = 'kvstore'";
@@ -114,6 +112,7 @@ namespace kvstore {
       exit(-1);
     }
 
+    // Prepare select and update statement for performance improvement.
     sql = "SELECT value FROM kvstore WHERE key=?";
     CALL_SQLITE(prepare_v2(db_, sql, strlen(sql) + 1, &get_stmt_, nullptr));
     sql = "UPDATE kvstore set value=? WHERE key=?";
@@ -132,25 +131,28 @@ namespace kvstore {
     char old_value[kValueMaxLen + 1];
 
     while (1) {
-      //accept connection from an incoming client
+      // Accept connection from an incoming client.
       client_sock = accept(socket_desc_, (struct sockaddr *)&client, (socklen_t*)&c);
       if (client_sock < 0) {
         perror("accept failed");
       }
       puts("Connection accepted");
       
-      //Receive a message from client
+      // Receive a message from client.
       while( (read_size = recv(client_sock , buf, kMsgMaxLen, 0)) > 0 ) {
         int flag = -1;
         msg.Reset(buf, read_size);
         msg.Get(sizeof(flag), &flag);
         switch (flag) {
           case 0: {
+            // Get request, message should be of the format: flag | length of
+            // key | key.
             int len = -1;
             msg.GetStr(key, &len);
             // Query the db.
             int ret = GetFromDB(key, old_value);
             msg.Reset(&ret, sizeof(ret));
+            // Return message: ret | length of value | value.
             if (0 == ret) {
               std::cout << "Get: ret # " << ret << " key # " << key << " value # " << old_value << std::endl; 
               msg.Append(old_value);
@@ -158,10 +160,12 @@ namespace kvstore {
             break;
           }
           case 1: {
+            // Put request, message should be of the format: flag | length of
+            // key | key | length of value | value.
             int len = -1;
             msg.GetStr(key, &len);
             msg.GetStr(value, &len);
-            // Query the db.
+            // Query the db to get old value.
             int ret = GetFromDB(key, old_value);
             // TODO:-1 == ret, add atomic operation here to not split the get
             // and put?

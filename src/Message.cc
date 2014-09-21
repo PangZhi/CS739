@@ -52,6 +52,7 @@ void Message::Append(const void* buf, const int len) {
 }
 
 void Message::Append(const void* buf) {
+  // Should append buf length | buf.
   int len = strlen((char *)buf);
   Append(&len, sizeof(len));
   Append(buf, len);
