@@ -107,7 +107,7 @@ int kv739_put(char* key, char* value, char* old_value) {
   char buf[kMsgMaxLen];
   int size = -1;
   //Receive a reply from the server
-  if ((size = recv(sock , buf, kMsgMaxLen, 0) < 0)) {
+  if ((size = recv(sock , buf, kMsgMaxLen, 0)) < 0) {
     puts("recv failed");
     return -1;
   }

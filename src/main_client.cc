@@ -11,8 +11,9 @@ int main() {
   char value[4096];
   int ret = -1;
   std::cout << kv739_put("random", "world", value) << "\n";
-  // std::cout << kv739_put(key, "lala", value) << " # " << value << "\n";
-  // std::cout << kv739_get(key, value) << " # " << value << "\n";
-  // std::cout << kv739_get("haha", value) << "\n";
+  std::cout << kv739_put(key, "lala", value) << " # " << value << "\n";
+  std::cout << kv739_put(key, "lala", value) << " # " << value << "\n";
+  std::cout << kv739_get(key, value) << " # " << value << "\n";
+  std::cout << kv739_get("haha", value) << "\n";
   return 0;
 }

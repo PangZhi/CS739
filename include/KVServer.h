@@ -54,18 +54,26 @@ class KVServer {
    * @brief Get data with key from db and store in value.
    * @param key The key.
    * @param value The value get from db.
-   * @param return 0 if success, -1 if not.
+   * @return 0 if success, 1 no such key, -1 if not.
    */
   int GetFromDB(const char* key, char* value); 
 
   /**
-   * @brief Set the key with the value.
+   * @brief Insert <key, value> pairs into database.
    * @param key The key.
-   * @param value The value get from db.
-   * @param return 0 if success, -1 if not.
+   * @param value The value. 
+   * @return 0 if success, -1 if not.
    */
-  int PutIntoDB(const char* key, const char* value);
+  int InsertIntoDB(const char* key, const char* value);
   
+  /**
+   * @brief Update the value of the key.
+   * @param key The key.
+   * @param value The new value.
+   * @return 0 if success, -1 if not.
+   */
+  int UpdateDB(const char* key, const char* value);
+
   // Port number.
   int port_;
   // Socket number.
@@ -74,8 +82,10 @@ class KVServer {
   sqlite3 *db_;
   // For get.
   sqlite3_stmt *get_stmt_;
-  // For put.
-  sqlite3_stmt *put_stmt_;
+  // For insert.
+  sqlite3_stmt *insert_stmt_;
+  // For update.
+  sqlite3_stmt *update_stmt_;
 }; // KVServer
 } // namespace kvstore
 

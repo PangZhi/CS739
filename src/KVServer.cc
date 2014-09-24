@@ -31,10 +31,14 @@ namespace kvstore {
     socket_desc_(-1),
     db_(nullptr),
     get_stmt_(nullptr),
-    put_stmt_(nullptr) {}
+    insert_stmt_(nullptr),
+    update_stmt_(nullptr) {}
   
   KVServer::~KVServer() {
     if (db_ != nullptr) {
+      sqlite3_finalize(get_stmt_);
+      sqlite3_finalize(update_stmt_);
+      sqlite3_finalize(insert_stmt_);
       sqlite3_close(db_);
     }
   }
@@ -100,6 +104,7 @@ namespace kvstore {
         s = sqlite3_step(stmt);
         if (s != SQLITE_DONE) {
           std::cout << "ERROR: Fail to create table.\n";
+          CALL_SQLITE(close(db_));
           exit(-1);
         } else {
           std::cout << "Create table successfully\n";
@@ -109,14 +114,17 @@ namespace kvstore {
       } 
     } else {
       std::cout << "ERROR: Create table failed.\n";
+      CALL_SQLITE(close(db_));
       exit(-1);
     }
 
     // Prepare select and update statement for performance improvement.
     sql = "SELECT value FROM kvstore WHERE key=?";
     CALL_SQLITE(prepare_v2(db_, sql, strlen(sql) + 1, &get_stmt_, nullptr));
-    sql = "UPDATE kvstore set value=? WHERE key=?";
-    CALL_SQLITE(prepare_v2(db_, sql, strlen(sql) + 1, &put_stmt_, nullptr));
+    sql = "INSERT INTO kvstore VALUES(?,?)";
+    CALL_SQLITE(prepare_v2(db_, sql, strlen(sql) + 1, &insert_stmt_, nullptr));
+    sql = "UPDATE kvstore SET value=? WHERE key=?";
+    CALL_SQLITE(prepare_v2(db_, sql, strlen(sql) + 1, &update_stmt_, nullptr));
   } 
 
   void KVServer::Run() {
@@ -170,7 +178,11 @@ namespace kvstore {
             // TODO:-1 == ret, add atomic operation here to not split the get
             // and put?
             int prev_ret = ret;
-            ret = PutIntoDB(key, value);
+            if (0 == prev_ret) {
+              ret = UpdateDB(key, value);
+            } else if (1 == prev_ret) {
+              ret = InsertIntoDB(key, value);  
+            }
             std::cout << "prev_ret: " << prev_ret << " ret: " << ret << std::endl;
             if (-1 == prev_ret || -1 == ret) {
               int tmp = -1;
@@ -215,20 +227,32 @@ int KVServer::GetFromDB(const char* key, char* value) {
   return ret;
 }
 
-int KVServer::PutIntoDB(const char* key,const char* value) {
+int KVServer::InsertIntoDB(const char* key,const char* value) {
   int ret = -1;
-  CALL_SQLITE(bind_text(put_stmt_, 2, key, strlen(key), nullptr)); 
-  CALL_SQLITE(bind_text(put_stmt_, 1, value, strlen(value), nullptr));
-  sqlite3_exec(db_, "BEGIN TRANSACTION;", 0, 0, 0);
-  int s = sqlite3_step(put_stmt_);
+  CALL_SQLITE(bind_text(insert_stmt_, 1, key, strlen(key), nullptr)); 
+  CALL_SQLITE(bind_text(insert_stmt_, 2, value, strlen(value), nullptr));
+  int s = sqlite3_step(insert_stmt_);
   if (s == SQLITE_DONE) {
     ret = 1;
   } else {
     ret = -1;
   }
-  sqlite3_exec(db_, "COMMIT TRANSACTION;", 0, 0, 0);
-  CALL_SQLITE(reset(put_stmt_));
-  CALL_SQLITE(clear_bindings(put_stmt_));
+  CALL_SQLITE(reset(insert_stmt_));
+  CALL_SQLITE(clear_bindings(insert_stmt_));
   return ret;
+}
+
+int KVServer::UpdateDB(const char* key, const char* value) {
+  int ret = -1;
+  CALL_SQLITE(bind_text(update_stmt_, 2, key, strlen(key), nullptr));
+  CALL_SQLITE(bind_text(update_stmt_, 1, value, strlen(value), nullptr));
+  int s = sqlite3_step(update_stmt_);
+  if (s == SQLITE_DONE) {
+    ret = 1;
+  } else {
+    ret = -1;
+  }
+  CALL_SQLITE(reset(update_stmt_));
+  CALL_SQLITE(clear_bindings(update_stmt_));
 }
 } // namespace kvstore
