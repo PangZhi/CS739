@@ -27,22 +27,22 @@ int kv739_init(char *server_str) {
   sock = socket(AF_INET , SOCK_STREAM , 0);
   if (sock == -1)
   {
-    std::cout << "ERROR: Could not create socket" << std::endl;
+    //std::cout << "ERROR: Could not create socket" << std::endl;
   }
 
   std::vector<std::string> strs = util::Split(std::string(server_str), ':');
   if (strs.size() != 2) {
-    std::cout << "ERROR: Could not format the server addr" << std::endl;
+    //std::cout << "ERROR: Could not format the server addr" << std::endl;
   }
 
   server.sin_addr.s_addr = inet_addr(strs[0].c_str());
   server.sin_family = AF_INET;
   server.sin_port = htons(atoi(strs[1].c_str()));
   
-  std::cout << "Connect to " << server_str << "\n";
+  //std::cout << "Connect to " << server_str << "\n";
 
   if (connect(sock, (struct sockaddr*)&server, sizeof(server)) < 0) {
-    std::cout << "ERROR: Fail to connect to server.\n";
+    //std::cout << "ERROR: Fail to connect to server.\n";
     exit(-1);
   }
   
@@ -75,8 +75,8 @@ int kv739_get(char* key, char* value) {
     return -1;
   }
 
-  puts("recv success");
-  std::cout << "read size is: " << size << std::endl;
+  //puts("recv success");
+  //std::cout << "read size is: " << size << std::endl;
   
   int ret = 0;
   msg.Reset(buf, size);
@@ -85,7 +85,7 @@ int kv739_get(char* key, char* value) {
   if (0 == ret) {
     int len = -1;
     msg.GetStr(value, &len);
-    std::cout << "ret :" << ret << " len :" << len << " value :" << value <<"\n";
+    //std::cout << "ret :" << ret << " len :" << len << " value :" << value <<"\n";
   }
   return ret;
 }
@@ -102,7 +102,7 @@ int kv739_put(char* key, char* value, char* old_value) {
     puts("Send failed");
     return -1;
   }
-  puts("Send succeed");
+  //puts("Send succeed");
   
   char buf[kMsgMaxLen];
   int size = -1;
@@ -113,7 +113,7 @@ int kv739_put(char* key, char* value, char* old_value) {
   }
   
   int ret = 0;
-  std::cout << "Read size is: " << size << std::endl;
+  //std::cout << "Read size is: " << size << std::endl;
   msg.Reset(buf, size);
   msg.Get(sizeof(ret), &ret);
 
@@ -121,6 +121,6 @@ int kv739_put(char* key, char* value, char* old_value) {
     int len = -1;
     msg.GetStr(old_value, &len);
   }
-  std::cout << "Client receive ret: " << ret << " value: " << value << std::endl;
+  //std::cout << "Client receive ret: " << ret << " value: " << value << std::endl;
   return ret;
 }

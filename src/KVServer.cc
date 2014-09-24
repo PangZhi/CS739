@@ -21,7 +21,7 @@ namespace kvstore {
   static int sqliteCallback(void *notUsed, int argc, char** argv, char **colNames) {
     int i = 0;
     for (i = 0; i < argc; ++i) {
-      std::cout << colNames[i] << " = " << (argv[i] ? argv[i] : "NULL") << "\n";
+      //std::cout << colNames[i] << " = " << (argv[i] ? argv[i] : "NULL") << "\n";
     }
     return 0;
   }
@@ -78,7 +78,7 @@ namespace kvstore {
   void KVServer::InitDB() {
      // Init the database.
     CALL_SQLITE(open("739.db", &db_));
-    std::cout << "Open database successfully\n";
+    //std::cout << "Open database successfully\n";
 
     char *sql = nullptr, *errMsg = nullptr;
     sqlite3_stmt *stmt = nullptr;
@@ -103,17 +103,17 @@ namespace kvstore {
         CALL_SQLITE(prepare_v2(db_, sql, strlen(sql) + 1, &stmt, nullptr));
         s = sqlite3_step(stmt);
         if (s != SQLITE_DONE) {
-          std::cout << "ERROR: Fail to create table.\n";
+          //std::cout << "ERROR: Fail to create table.\n";
           CALL_SQLITE(close(db_));
           exit(-1);
         } else {
-          std::cout << "Create table successfully\n";
+          //std::cout << "Create table successfully\n";
         }
       } else {
-        std::cout << "Table kvstore already exist\n";
+        //std::cout << "Table kvstore already exist\n";
       } 
     } else {
-      std::cout << "ERROR: Create table failed.\n";
+      //std::cout << "ERROR: Create table failed.\n";
       CALL_SQLITE(close(db_));
       exit(-1);
     }
@@ -162,7 +162,7 @@ namespace kvstore {
             msg.Reset(&ret, sizeof(ret));
             // Return message: ret | length of value | value.
             if (0 == ret) {
-              std::cout << "Get: ret # " << ret << " key # " << key << " value # " << old_value << std::endl; 
+              //std::cout << "Get: ret # " << ret << " key # " << key << " value # " << old_value << std::endl; 
               msg.Append(old_value);
             } 
             break;
@@ -183,14 +183,14 @@ namespace kvstore {
             } else if (1 == prev_ret) {
               ret = InsertIntoDB(key, value);  
             }
-            std::cout << "prev_ret: " << prev_ret << " ret: " << ret << std::endl;
+            //std::cout << "prev_ret: " << prev_ret << " ret: " << ret << std::endl;
             if (-1 == prev_ret || -1 == ret) {
               int tmp = -1;
               msg.Reset(&tmp, sizeof(tmp));
             } else {
               msg.Reset(&prev_ret, sizeof(prev_ret));
               if (0 == prev_ret) {
-                std::cout << "old value: " << old_value << std::endl;
+                //std::cout << "old value: " << old_value << std::endl;
                 msg.Append(old_value);
               }
             }
@@ -198,7 +198,7 @@ namespace kvstore {
           }
         }
         int size = write(client_sock, msg.data(), msg.length());
-        std::cout << "write size is: " << size <<" send msg size:" << msg.length() << "\n";
+        //std::cout << "write size is: " << size <<" send msg size:" << msg.length() << "\n";
       }
      
       if(read_size == 0) {
